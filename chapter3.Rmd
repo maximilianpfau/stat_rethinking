@@ -1,0 +1,74 @@
+---
+title: "Chapter3"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load libraries
+
+
+```{r Libraries}
+library(rethinking)
+library(tidyverse)
+
+sessionInfo()
+```
+
+## Homework 3
+
+### Part 1
+
+Using grid approximation, compute the posterior distribution for the probability of a birth being a boy (val = 1). Assume a uniform prior.
+
+```{r Part 1}
+
+data(homeworkch3)
+
+all_boys <- sum(birth1) + sum(birth2)
+all_births <- length(birth1) + length(birth2)
+
+
+p_grid <- seq( from=0, to=1, length.out=1000)
+
+prior <- rep(1,1000)
+prior <- prior/sum(prior)
+
+likelihood <- dbinom(all_boys, size=all_births, prob=p_grid )
+
+posterior <- prior * likelihood
+posterior <- posterior/sum(posterior)
+
+qplot(x=p_grid, y=posterior)
+
+
+```
+
+### Part 2
+
+Using grid approximation, compute the posterior distribution for the probability of a birth being a boy (val = 1). Assume a uniform prior.
+
+```{r Part 2}
+samples <- sample( p_grid, size=1e4, replace=TRUE, prob=posterior )
+
+HPDI( samples, prob=0.5)
+HPDI( samples, prob=0.89)
+HPDI( samples, prob=0.97)
+
+
+qplot(x=samples, geom='density', xlim=c(0,1))
+```
+
+### Part 3
+
+Using rbinom to simulate 10,000 of 200 births.
+
+```{r Part 3}
+
+w <- rbinom( 1e4, size=200, samples)
+
+simplehist(w)
+
+```

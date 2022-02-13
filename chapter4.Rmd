@@ -1,0 +1,84 @@
+---
+title: "Chapter 4"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load libraries
+
+
+```{r Libraries}
+library(rethinking)
+library(tidyverse)
+
+sessionInfo()
+```
+
+## Homework 3
+
+### 4E1
+
+
+$$y_{i} \sim Normal(\mu, \sigma)$$
+$$\mu \sim Normal(0,10)$$
+$$\sigma \sim Exponential(1)$$
+The first line is the likelihood.
+
+### 4E2
+Two parameters are in the posterior distribution.
+
+### 4E3
+
+### 4E4
+
+The second line defines the linear model.
+
+### 4E5
+
+Three parameters.
+
+### 4M1
+
+````{r 4M1}
+
+mu <- rnorm(1e4, 0, 10)
+sigma <- rexp(1e4, 1)
+
+y <- rnorm(1e4, mu, sigma)
+
+qplot(x=y, geom='density')
+
+````
+
+
+### 4M2
+
+````{r 4M2}
+
+# flist <- alist(
+#  y ~ dnorm(mu, sigma),
+#  mu <- dnorm(0, 10),
+#  sigma <- dexp(1)
+#)
+
+data(Howell1)
+
+d2 <- subset(Howell1, age>=18)
+
+
+flist <- alist(
+  height ~ dnorm(mu, sigma),
+  mu <- dnorm(178, 20),
+  sigma <- dunif(0, 50)
+)
+
+m4.1 <- quap( flist, data=d2 )
+
+precis( m4.1 )
+
+````
+
+

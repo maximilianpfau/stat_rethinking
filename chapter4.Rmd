@@ -13,6 +13,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r Libraries}
 library(rethinking)
 library(tidyverse)
+library(modelr)
+
 
 sessionInfo()
 ```
@@ -88,22 +90,25 @@ precis( m4.1 )
 
 Refit the model m4.3, but omit the mean weight xbar this time.
 
-Model m4.3
+By excluding xbar from the model, the intercept will shift by $\beta$ times $\bar{x}$ (i.e., by 0.9*45).
+
+***Model m4.3 (original version)***
 
 $$h_{i} \sim Normal( \mu_{i}, \sigma)$$
 $$u_{i} \sim \alpha + \beta(x_{i} - \bar{x})$$
 $$\alpha \sim Normal(178,20)$$
 $$\beta \sim LogNormal(0,1)$$
 $$\sigma \sim Uniform(0,50)$$
+***Model m4.3 (original modified)***
 
-
-
+$$h_{i} \sim Normal( \mu_{i}, \sigma)$$
+$$u_{i} \sim \alpha + \beta(x_{i})$$
 
 
 
 ````{r 4M7}
 
-head(d2)
+xbar <- mean(d2$weight)
 
 m4.3 <- quap(
   alist(
@@ -116,3 +121,94 @@ m4.3 <- quap(
   )
   
 
+m4.3b <- quap(
+  alist(
+  height ~ dnorm(mu, sigma),
+  mu ~ a + b*( weight ),
+  a ~ dnorm( 150, 20 ),
+  b ~ dlnorm( 0 , 1),
+  sigma <- dunif(0, 50)
+  ), data=d2
+  )
+
+precis(m4.3)
+precis(m4.3b)
+
+  
+````
+
+
+
+````{r Compare results}
+
+post_orig <- extract.samples( m4.3 )
+post_modified <- extract.samples( m4.3b )
+
+
+d2 <- d2 %>%
+  mutate(pred_orig = mean(post_orig$a) + mean(post_orig$b) * ( weight - xbar),
+         pred_modified = mean(post_modified$a) + mean(post_modified$b) * ( weight ) )
+
+ggplot(d2, aes(x=weight, y=height)) + geom_point(alpha=0.2) +
+  geom_line(aes(x=weight, y=pred_orig), color='red') +
+  geom_line(aes(x=weight, y=pred_modified), color='blue') 
+
+
+
+pred_tibble <- d2 %>%
+ data_grid(weight=weight)
+
+post_orig <- post_orig %>%
+  rowid_to_column("draw") 
+
+
+
+# Uncertainty of Mu
+
+augment_func_mu <- function(coefs, newdata = pred_tibble) {
+  
+  predictions <- (coefs$a + coefs$b * (newdata$weight - xbar))
+                  
+  dplyr::bind_cols(tibble::as_tibble(newdata),
+                   tibble::tibble(.fitted = predictions))
+}
+
+
+post_pred_mu <- post_orig[0:100,] %>%
+  nest(coefs = c(a, b, sigma)) %>%
+  mutate(pred_mu = map(coefs, ~augment_func_mu(.x) ) ) 
+
+
+post_pred_mu %>%
+  unnest(pred_mu) %>%
+  ggplot(aes(x=weight, y=.fitted, group=draw)) + geom_line(alpha=0.2) +
+  geom_point(inherit.aes = FALSE, data=d2, aes(x=weight, y=height), alpha=0.2)
+
+
+# Uncertainty of Mu and Sigma
+
+
+augment_func_overall <- function(coefs, newdata = pred_tibble) {
+  
+  predictions <- rnorm(length(newdata$weight), coefs$a + coefs$b * (newdata$weight - xbar), coefs$sigma)
+                  
+  dplyr::bind_cols(tibble::as_tibble(newdata),
+                   tibble::tibble(.fitted = predictions))
+}
+
+
+
+post_pred_overall <- post_orig[0:1000,] %>%
+  nest(coefs = c(a, b, sigma)) %>%
+  mutate(pred_overall = map(coefs, ~augment_func_overall(.x, newdata = tibble(weight=seq(30,65,1)) ) ) ) 
+
+post_pred_overall %>%
+  unnest(pred_overall) %>%
+  group_by(weight) %>%
+  summarise(lwr = quantile(.fitted, c(0.05)),
+            upr = quantile(.fitted, c(0.95)),
+            median = quantile(.fitted, c(0.5)) ) %>%
+  ggplot(aes(x=weight, y=median, ymin=lwr, ymax=upr)) + geom_line() + geom_ribbon(alpha=0.4) +
+  geom_point(inherit.aes = FALSE, data=d2, aes(x=weight, y=height), alpha=0.2) 
+
+````

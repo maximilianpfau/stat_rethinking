@@ -82,3 +82,37 @@ precis( m4.1 )
 ````
 
 
+
+
+### 4M7
+
+Refit the model m4.3, but omit the mean weight xbar this time.
+
+Model m4.3
+
+$$h_{i} \sim Normal( \mu_{i}, \sigma)$$
+$$u_{i} \sim \alpha + \beta(x_{i} - \bar{x})$$
+$$\alpha \sim Normal(178,20)$$
+$$\beta \sim LogNormal(0,1)$$
+$$\sigma \sim Uniform(0,50)$$
+
+
+
+
+
+
+````{r 4M7}
+
+head(d2)
+
+m4.3 <- quap(
+  alist(
+  height ~ dnorm(mu, sigma),
+  mu ~ a + b*( weight - xbar),
+  a ~ dnorm( 178, 20 ),
+  b ~ dlnorm( 0 , 1),
+  sigma <- dunif(0, 50)
+  ), data=d2
+  )
+  
+
